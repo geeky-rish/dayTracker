@@ -1,5 +1,7 @@
+// Import the functions you need from the SDKs you need
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
 import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-analytics.js";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -15,13 +17,44 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 const database = getDatabase(app);
 
-const totalDays = 2385;
 const trackerDiv = document.getElementById('tracker');
 const infoDiv = document.getElementById('info');
-const progressBar = document.getElementById('progress-bar');
 
+// Create boxes based on the range
+function createBoxes(startDate, endDate) {
+    let currentDate = new Date(startDate);
+    const end = new Date(endDate);
+    trackerDiv.innerHTML = ''; // Clear previous boxes
+
+    while (currentDate <= end) {
+        const dayDiv = document.createElement('div');
+        const dateDiv = document.createElement('div');
+
+        dayDiv.className = 'day unchecked';
+        dayDiv.innerHTML = '✗';
+
+        dateDiv.className = 'date';
+        dateDiv.innerHTML = formatDate(currentDate);
+
+        dayDiv.onclick = () => {
+            dayDiv.classList.toggle('checked');
+            dayDiv.classList.toggle('unchecked');
+            dayDiv.innerHTML = dayDiv.classList.contains('checked') ? '✓' : '✗';
+            updateInfo();
+            saveState(); // Save state whenever a box is clicked
+        };
+
+        dayDiv.appendChild(dateDiv);
+        trackerDiv.appendChild(dayDiv);
+
+        currentDate.setDate(currentDate.getDate() + 1); // Move to the next day
+    }
+}
+
+// Format date for display
 function formatDate(date) {
     let day = ('0' + date.getDate()).slice(-2);
     let month = ('0' + (date.getMonth() + 1)).slice(-2);
@@ -29,17 +62,17 @@ function formatDate(date) {
     return `${day}-${month}-${year}`;
 }
 
+// Update information display
 function updateInfo() {
     const checkedBoxes = document.querySelectorAll('.day.checked').length;
-    const remainingBoxes = totalDays - checkedBoxes;
-    infoDiv.innerHTML = `Total Boxes: ${totalDays}<br>
+    const totalBoxes = document.querySelectorAll('.day').length;
+    const remainingBoxes = totalBoxes - checkedBoxes;
+    infoDiv.innerHTML = `Total Boxes: ${totalBoxes}<br>
                           Checked: ${checkedBoxes}<br>
                           Left: ${remainingBoxes}`;
-    // Update the progress bar
-    const progress = (checkedBoxes / totalDays) * 100;
-    progressBar.value = progress;
 }
 
+// Save state to Firebase
 function saveState() {
     const state = Array.from(document.querySelectorAll('.day')).map(dayDiv => dayDiv.classList.contains('checked'));
     set(ref(database, 'trackerState'), state)
@@ -51,6 +84,7 @@ function saveState() {
     });
 }
 
+// Load state from Firebase
 function loadState() {
     const stateRef = ref(database, 'trackerState');
     get(stateRef)
@@ -65,7 +99,7 @@ function loadState() {
                     dayDivs[index].innerHTML = checked ? '✓' : '✗';
                 }
             });
-            updateInfo(); // Ensure progress bar is updated after loading state
+            updateInfo(); // Update info display after loading state
         }
     })
     .catch((error) => {
@@ -73,31 +107,11 @@ function loadState() {
     });
 }
 
-const today = new Date();
+// Start and end dates for demonstration (update these as needed)
+const startDate = '2024-08-02';
+const endDate = '2031-02-11';
 
-for (let i = 0; i < totalDays; i++) {
-    const dayDiv = document.createElement('div');
-    const dateDiv = document.createElement('div');
-    
-    dayDiv.className = 'day unchecked';
-    dayDiv.innerHTML = '✗';
-    
-    dateDiv.className = 'date';
-    dateDiv.innerHTML = formatDate(today);
-    
-    dayDiv.onclick = () => {
-        dayDiv.classList.toggle('checked');
-        dayDiv.classList.toggle('unchecked');
-        dayDiv.innerHTML = dayDiv.classList.contains('checked') ? '✓' : '✗';
-        updateInfo();
-        saveState(); // Save state whenever a box is clicked
-    };
-    
-    dayDiv.appendChild(dateDiv);
-    trackerDiv.appendChild(dayDiv);
-    
-    today.setDate(today.getDate() + 1); // Move to the next day
-}
-
+// Initialize boxes and load state
+createBoxes(startDate, endDate);
 loadState(); // Load state from Firebase on page load
 updateInfo(); // Initial call to set up info display
